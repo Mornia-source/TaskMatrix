@@ -1,0 +1,142 @@
+:root {
+  --bg: #1a1c1f; --bg2: #22252a; --panel: #272a30; --panel2: #2e3239; --line: #3a3f47; --line2: #4a505a;
+  --text: #d6dae0; --dim: #7c8591; --accent: #ff8a1f; --hazard: #ff8a1f;
+  --q1: #ff4d3d; --q2: #ffb020; --q3: #2ad4ff; --q4: #8c96a0; --glow: 0.55;
+  --mono: "Cascadia Mono", "JetBrains Mono", Consolas, "Microsoft YaHei UI", monospace;
+  --sans: "Microsoft YaHei UI", "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: transparent; overflow: hidden; user-select: none; }
+body { font: 12px var(--sans); color: var(--text); padding: 4px; }
+button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+.q1 { --qc: var(--q1); } .q2 { --qc: var(--q2); } .q3 { --qc: var(--q3); } .q4 { --qc: var(--q4); }
+
+/* ===== 工业（默认） ===== */
+.menu {
+  background: var(--bg2); border: 1px solid var(--line2); border-top: 2px solid var(--accent);
+  box-shadow: 0 6px 18px rgba(0,0,0,.45);
+  padding-bottom: 4px;
+}
+.menu.enter { animation: enter .14s ease-out; }
+@keyframes enter { from { opacity: 0; transform: translateY(4px); } }
+
+.head { padding: 7px 10px 6px; }
+.brand { display: flex; align-items: center; gap: 6px; font: 700 11px var(--mono); letter-spacing: 2px; }
+.brand em { font-style: normal; color: var(--accent); }
+.led { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+.counts { display: flex; align-items: center; gap: 8px; margin-top: 5px; font: 11px var(--mono); }
+.counts span { display: flex; align-items: center; gap: 3px; }
+.counts i { width: 7px; height: 7px; background: var(--qc); }
+.counts .empty { opacity: .4; }
+.counts .today { margin-left: auto; color: var(--dim); font-family: var(--sans); font-size: 10px; }
+.hazard {
+  height: 4px; margin-bottom: 4px;
+  background: repeating-linear-gradient(-45deg, var(--hazard) 0 6px, transparent 6px 12px); opacity: .6;
+}
+
+.item {
+  display: flex; align-items: center; gap: 8px; width: 100%; height: 28px; padding: 0 10px;
+  text-align: left; position: relative;
+}
+.item:hover { background: var(--panel2); }
+.item:hover::before { content: ""; position: absolute; left: 0; top: 4px; bottom: 4px; width: 2px; background: var(--accent); }
+.item .ico { width: 14px; text-align: center; color: var(--dim); font-size: 11px; }
+.item:hover .ico { color: var(--accent); }
+.item .label { flex: 1; }
+.item kbd { font: 9px var(--mono); color: var(--dim); border: 1px solid var(--line2); padding: 0 4px; }
+.item.danger:hover { color: var(--q1); }
+.item.danger:hover::before { background: var(--q1); }
+
+.sw { /* 开关 */
+  width: 26px; height: 12px; border: 1px solid var(--line2); position: relative; background: var(--bg);
+}
+.sw::after {
+  content: ""; position: absolute; top: 1px; left: 1px; width: 10px; height: 8px; background: var(--dim);
+  transition: left .15s, background .15s;
+}
+.toggle.on .sw { border-color: var(--accent); }
+.toggle.on .sw::after { left: 13px; background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+
+.sep { height: 1px; margin: 4px 8px; background: var(--line); }
+
+.group { display: flex; align-items: center; gap: 8px; padding: 4px 10px; }
+.glabel { width: 28px; color: var(--dim); font-size: 11px; }
+.themes { display: flex; gap: 5px; }
+.theme { display: flex; gap: 1px; padding: 3px; border: 1px solid var(--line2); }
+.theme i { width: 5px; height: 12px; }
+.theme:hover { border-color: var(--text); }
+.theme.current { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.skins { display: flex; flex: 1; border: 1px solid var(--line2); }
+.skin { flex: 1; padding: 3px 0; font-size: 11px; color: var(--dim); }
+.skin + .skin { border-left: 1px solid var(--line2); }
+.skin:hover { color: var(--text); background: var(--panel2); }
+.skin.current { color: var(--bg); background: var(--accent); }
+
+/* 主菜单 / 任务菜单切换 */
+.task-part { display: none; }
+body.task-mode .task-part { display: block; }
+body.task-mode .main-part { display: none; }
+
+.item.sub { padding-left: 22px; height: 24px; font-size: 11px; color: var(--dim); }
+.item.disabled { opacity: .4; pointer-events: none; }
+
+.task-head { padding: 8px 10px 7px; border-left: 3px solid var(--qc); }
+.task-head .tq { display: block; font: 700 9px var(--mono); color: var(--qc); letter-spacing: 1px; margin-bottom: 3px; }
+.task-head .tt {
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  font-size: 12px; line-height: 1.45; word-break: break-word;
+}
+.moves { display: flex; gap: 4px; flex: 1; }
+.mv {
+  flex: 1; height: 22px; font: 700 10px var(--mono); color: var(--qc);
+  border: 1px solid var(--qc); background: color-mix(in srgb, var(--qc) 10%, transparent);
+}
+.mv:hover:not(:disabled) { background: var(--qc); color: var(--bg); }
+.mv:disabled { opacity: .3; cursor: default; }
+
+/* ===== 极简 ===== */
+:root[data-skin="minimal"] .task-head { border-left: none; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+:root[data-skin="minimal"] .task-part .hazard { display: none; }
+:root[data-skin="minimal"] .mv { border: none; border-radius: 6px; background: color-mix(in srgb, var(--qc) 18%, transparent); }
+:root[data-skin="minimal"] .menu { border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
+:root[data-skin="minimal"] .hazard { display: none; }
+:root[data-skin="minimal"] .brand { font-family: var(--sans); letter-spacing: .5px; font-weight: 600; }
+:root[data-skin="minimal"] .brand em { color: var(--dim); }
+:root[data-skin="minimal"] .led { box-shadow: none; }
+:root[data-skin="minimal"] .counts { font-family: var(--sans); }
+:root[data-skin="minimal"] .counts i { border-radius: 50%; }
+:root[data-skin="minimal"] .head { border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+:root[data-skin="minimal"] .item { border-radius: 6px; }
+:root[data-skin="minimal"] .item:hover::before { display: none; }
+:root[data-skin="minimal"] .item kbd { border: none; font-family: var(--sans); }
+:root[data-skin="minimal"] .sw { border: none; border-radius: 7px; height: 14px; background: var(--line2); }
+:root[data-skin="minimal"] .sw::after { border-radius: 50%; width: 10px; height: 10px; top: 2px; left: 2px; background: #fff; }
+:root[data-skin="minimal"] .toggle.on .sw { background: var(--accent); }
+:root[data-skin="minimal"] .toggle.on .sw::after { left: 14px; background: #fff; box-shadow: none; }
+:root[data-skin="minimal"] .theme { border-radius: 6px; }
+:root[data-skin="minimal"] .theme i { border-radius: 2px; }
+:root[data-skin="minimal"] .skins { border: none; background: var(--bg); border-radius: 6px; padding: 2px; }
+:root[data-skin="minimal"] .skin { border-radius: 4px; }
+:root[data-skin="minimal"] .skin + .skin { border-left: none; }
+
+/* ===== 战术 HUD ===== */
+:root[data-skin="hud"] .menu {
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, var(--bg)), var(--bg) 40%);
+  clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+  box-shadow: none;
+}
+:root[data-skin="hud"] .hazard {
+  height: 1px; opacity: 1; background: linear-gradient(90deg, transparent, var(--accent), transparent); box-shadow: 0 0 8px var(--accent);
+}
+:root[data-skin="hud"] .led { border-radius: 0; transform: rotate(45deg); }
+:root[data-skin="hud"] .counts i { transform: rotate(45deg) scale(.8); }
+:root[data-skin="hud"] .item:hover { background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 18%, transparent), transparent); }
+:root[data-skin="hud"] .item:hover::before { box-shadow: 0 0 6px var(--accent); }
+:root[data-skin="hud"] .item .label::before { content: "> "; opacity: 0; color: var(--accent); }
+:root[data-skin="hud"] .item:hover .label::before { opacity: 1; }
+:root[data-skin="hud"] .sw { transform: skewX(-15deg); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+:root[data-skin="hud"] .sep { background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 40%, transparent), transparent); }
+:root[data-skin="hud"] .skins { border-color: color-mix(in srgb, var(--accent) 40%, transparent); transform: skewX(-12deg); }
+:root[data-skin="hud"] .skin { transform: skewX(12deg); }
+:root[data-skin="hud"] .theme { clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px); }

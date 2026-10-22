@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
+  <title>任务矩阵菜单</title>
+  <link rel="stylesheet" href="menu.css">
+</head>
+<body>
+  <div class="menu" id="menu">
+    <!-- 任务模式：在小组件的任务卡片上右键 -->
+    <div class="task-part">
+      <div class="task-head" id="taskHead"><span class="tq" id="taskQ"></span><span class="tt" id="taskText"></span></div>
+      <div class="hazard"></div>
+      <button class="item" data-task="task-complete"><span class="ico">✓</span><span class="label">完成</span></button>
+      <button class="item" data-task="task-edit"><span class="ico">✎</span><span class="label">编辑</span></button>
+      <div class="group"><span class="glabel">移到</span><div class="moves" id="moves"></div></div>
+      <div class="sep"></div>
+      <button class="item danger" data-task="task-delete"><span class="ico">✕</span><span class="label">删除</span></button>
+    </div>
+
+    <div class="main-part">
+    <div class="head">
+      <div class="brand"><span class="led"></span>TASK<em>//</em>MATRIX</div>
+      <div class="counts" id="counts"></div>
+    </div>
+    <div class="hazard"></div>
+
+    <button class="item" data-action="open"><span class="ico">▣</span><span class="label">打开面板</span><kbd id="hotkey"></kbd></button>
+    <button class="item" data-action="new"><span class="ico">＋</span><span class="label">新建任务</span></button>
+    <div class="sep"></div>
+
+    <button class="item toggle" data-action="widget"><span class="ico">▬</span><span class="label">任务栏小组件</span><span class="sw"></span></button>
+    <button class="item toggle sub" data-action="widgetExpand"><span class="ico">↔</span><span class="label">在任务栏显示任务项</span><span class="sw"></span></button>
+    <button class="item toggle" data-action="pin"><span class="ico">◈</span><span class="label">钉住面板</span><span class="sw"></span></button>
+    <button class="item toggle" data-action="sound"><span class="ico">♪</span><span class="label">音效</span><span class="sw"></span></button>
+    <button class="item toggle" data-action="autostart"><span class="ico">⏻</span><span class="label">开机自启</span><span class="sw"></span></button>
+    <div class="sep"></div>
+
+    <div class="group"><span class="glabel">主题</span><div class="themes" id="themes"></div></div>
+    <div class="group"><span class="glabel">皮肤</span><div class="skins" id="skins"></div></div>
+    <div class="sep"></div>
+
+    <button class="item danger" data-action="quit"><span class="ico">✕</span><span class="label">退出</span></button>
+    </div>
+  </div>
+  <script src="themes.js"></script>
+  <script src="menu.js"></script>
+</body>
+</html>

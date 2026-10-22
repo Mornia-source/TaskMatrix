@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
+  <title>任务矩阵小组件</title>
+  <link rel="stylesheet" href="widget.css">
+</head>
+<body class="mode-compact">
+  <div class="bar" id="bar">
+    <span class="led"></span>
+    <div class="chips">
+      <span class="chip q1" data-q="1"><i>Q1</i><b>0</b></span>
+      <span class="chip q2" data-q="2"><i>Q2</i><b>0</b></span>
+      <span class="chip q3" data-q="3"><i>Q3</i><b>0</b></span>
+      <span class="chip q4" data-q="4"><i>Q4</i><b>0</b></span>
+    </div>
+    <!-- 紧凑模式：只显示最该做的一条 -->
+    <div class="focus" id="focus"><span class="ft" id="focusText">—</span></div>
+    <!-- 展开模式：任务卡片排开 -->
+    <div class="items" id="items"></div>
+    <button class="more" id="more" title="还有更多任务，点击打开面板"></button>
+    <button class="add" id="add" title="新建任务">＋</button>
+    <div class="progress"><div class="pfill" id="pfill"></div></div>
+    <canvas id="fx"></canvas>
+  </div>
+  <div id="pop"></div>
+  <script src="themes.js"></script>
+  <script src="widget.js"></script>
+</body>
+</html>

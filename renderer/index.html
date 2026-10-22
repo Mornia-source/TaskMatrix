@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
+  <title>任务矩阵</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="skins.css">
+</head>
+<body>
+  <div id="app">
+    <header class="titlebar">
+      <div class="brand">
+        <span class="led"></span>
+        <span class="brand-name">TASK<em>//</em>MATRIX</span>
+        <span class="brand-sub">SYS.ONLINE</span>
+      </div>
+      <div class="clock" id="clock">00:00:00</div>
+      <div class="win-btns">
+        <button id="btnSkin" title="主题配色与皮肤风格">SKN</button>
+        <button id="btnSound" title="音效开关">SND</button>
+        <button id="btnPin" title="钉住窗口（失焦不隐藏）">PIN</button>
+        <button id="btnClose" class="close" title="隐藏到托盘 (Esc)">✕</button>
+      </div>
+    </header>
+    <div class="hazard"></div>
+
+    <section class="status">
+      <div class="stat lv">
+        <span class="k">LV</span><span class="v" id="lvNum">1</span>
+        <div class="xpbar"><div class="xpfill" id="xpFill"></div></div>
+        <span class="xptext" id="xpText">0/50</span>
+      </div>
+      <div class="stat"><span class="k">今日</span><span class="v" id="todayNum">00</span></div>
+      <div class="stat"><span class="k">连续</span><span class="v" id="streakNum">0</span><span class="u">天</span></div>
+    </section>
+    <div class="segbar" id="segbar" title="今日进度"></div>
+
+    <form class="inputbar" id="addForm" autocomplete="off">
+      <span class="prompt">&gt;_</span>
+      <input id="taskInput" placeholder="输入任务，回车添加 · Tab 切换象限" maxlength="200">
+      <div class="qpick" id="qpick">
+        <button type="button" data-q="1" class="q1" title="紧急 · 重要 (Ctrl+1)">1</button>
+        <button type="button" data-q="2" class="q2" title="重要 · 不紧急 (Ctrl+2)">2</button>
+        <button type="button" data-q="3" class="q3" title="紧急 · 不重要 (Ctrl+3)">3</button>
+        <button type="button" data-q="4" class="q4" title="不紧急 · 不重要 (Ctrl+4)">4</button>
+      </div>
+    </form>
+
+    <main class="matrix" id="matrix">
+      <section class="quad q1" data-q="1">
+        <div class="quad-head"><span class="code">Q1</span><span class="tag">立即处理</span><span class="label">紧急 · 重要</span><span class="count">0</span></div>
+        <ul class="tasks"></ul>
+      </section>
+      <section class="quad q2" data-q="2">
+        <div class="quad-head"><span class="code">Q2</span><span class="tag">计划安排</span><span class="label">重要 · 不紧急</span><span class="count">0</span></div>
+        <ul class="tasks"></ul>
+      </section>
+      <section class="quad q3" data-q="3">
+        <div class="quad-head"><span class="code">Q3</span><span class="tag">快速搞定</span><span class="label">紧急 · 不重要</span><span class="count">0</span></div>
+        <ul class="tasks"></ul>
+      </section>
+      <section class="quad q4" data-q="4">
+        <div class="quad-head"><span class="code">Q4</span><span class="tag">有空再说</span><span class="label">不紧急 · 不重要</span><span class="count">0</span></div>
+        <ul class="tasks"></ul>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <button id="btnDone" class="link">▸ 已完成 <span id="doneCount">0</span></button>
+      <span class="hint">Alt+Shift+Q 呼出 · 双击编辑 · 拖拽换象限</span>
+    </footer>
+
+    <div class="drawer" id="drawer">
+      <div class="drawer-head">
+        <span>ARCHIVE // 已完成</span>
+        <button id="btnClearDone" class="link danger">清空</button>
+        <button id="btnCloseDrawer" class="link">✕</button>
+      </div>
+      <ul class="done-list" id="doneList"></ul>
+    </div>
+
+    <div class="skin-menu" id="skinMenu"></div>
+  </div>
+
+  <canvas id="fx"></canvas>
+  <div id="fxText"></div>
+  <div class="scanlines"></div>
+
+  <script src="themes.js"></script>
+  <script src="sound.js"></script>
+  <script src="fx.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
