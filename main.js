@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, ipcMain, globalShortcut, nativeImage, screen } = require('electron');
+const { app, BrowserWindow, Tray, ipcMain, globalShortcut, nativeImage, screen, powerMonitor, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { execFile } = require('child_process');
@@ -50,6 +50,9 @@ const page = (name) => path.join(__dirname, 'renderer', name);
 const dataFile = () => path.join(app.getPath('userData'), 'data.json');
 const settings = () => ({ ...DEFAULT_SETTINGS, ...(data && data.settings) });
 
+// 面板事件调试（TM_DEBUG_PANEL=1）：显示 / 隐藏 / 焦点 / 画出来的耗时，用来复现"面板偶发黑块"
+const pdbg = (...a) => { if (process.env.TM_DEBUG_PANEL) console.log('[panel ' + new Date().toISOString().slice(11, 23) + ']', ...a); };
+
 // 异常现象的诊断日志（userData/debug.log）：只记录"面板没画出来"这类少见情况，下次出问题时有据可查
 function dlog(msg) {
   console.log('[dlog]', msg);
@@ -58,6 +61,43 @@ function dlog(msg) {
     if (fs.existsSync(f) && fs.statSync(f).size > 100 * 1024) fs.writeFileSync(f, '');
     fs.appendFileSync(f, `${new Date().toISOString()} ${msg}\n`);
   } catch { /* 日志写不了不影响使用 */ }
+}
+
+// 保存一份诊断快照（见 diagnose.js）。自动触发的同一时段只存一次，免得反复出问题时刷屏；手动触发不限制
+const diagnose = require('./diagnose');
+let lastDiagAt = 0;
+async function dumpDiagnostics(reason, force = false) {
+  if (!force && Date.now() - lastDiagAt < 30000) return null;
+  lastDiagAt = Date.now();
+  try {
+    const text = await diagnose.collect({ win, widget, menu, panelReady: () => panelReady, showSeq: () => showSeq, shownAck: () => shownAck }, reason);
+    const f = diagnose.save(text);
+    dlog(`已保存诊断快照（${reason}）`);
+    return f;
+  } catch (err) {
+    dlog('保存诊断快照失败：' + err.message);
+    return null;
+  }
+}
+
+// 窗口里的页面（渲染进程）崩溃或长时间无响应时自动恢复。
+// 任务栏上的点击是由这些页面处理的：小组件的页面一旦挂掉，点击没反应、显示也不再更新，用户只会觉得"软件坏了"
+function watchRenderer(name, w) {
+  let hangTimer = null;
+  const reload = () => { if (!w.isDestroyed()) w.webContents.reload(); };
+  w.webContents.on('render-process-gone', (_e, d) => {
+    if (isQuitting || d.reason === 'clean-exit') return; // 程序正常退出时子进程也会"退出"，那不是异常
+    dlog(`${name}页面的渲染进程退出：${d.reason}（${d.exitCode}），重新载入`);
+    dumpDiagnostics(`${name}渲染进程退出：${d.reason}`);
+    if (!process.env.TM_NO_WATCH) setTimeout(reload, 500); // TM_NO_WATCH：测试时保留崩溃后的原样
+  });
+  w.on('unresponsive', () => {
+    dlog(`${name}页面无响应`);
+    dumpDiagnostics(`${name}页面无响应`);
+    clearTimeout(hangTimer);
+    hangTimer = setTimeout(() => { dlog(`${name}页面持续无响应，重新载入`); reload(); }, 8000);
+  });
+  w.on('responsive', () => { clearTimeout(hangTimer); dlog(`${name}页面恢复响应`); });
 }
 
 // ---------- 数据 ----------
@@ -190,6 +230,7 @@ function showWindow(anchor = null, focusInput = false) {
   win.webContents.invalidate(); // 显示时强制重绘一帧
   const token = ++showSeq;
   showAt.set(token, Date.now());
+  pdbg('显示', token, '可见', win.isVisible(), '有焦点', win.isFocused(), '已就绪', panelReady);
   send(win, 'window-shown', { edge: lastEdge, focusInput, token });
   watchPanelPaint(token);
 }
@@ -203,6 +244,7 @@ function watchPanelPaint(token) {
   setTimeout(() => {
     if (stale()) return;
     dlog('面板显示后没有收到绘制确认，强制重绘');
+    dumpDiagnostics('面板显示后 600ms 没有画出来'); // 趁现场还在，记下页面、GPU、显示器的真实状态
     win.webContents.invalidate();
     setTimeout(() => {
       if (stale()) return;
@@ -214,7 +256,7 @@ function watchPanelPaint(token) {
 ipcMain.on('panel:ready', () => { panelReady = true; });
 ipcMain.on('win:shown-ack', (_e, token) => {
   shownAck = Math.max(shownAck, Number(token) || 0);
-  if (showAt.has(token)) { ackLatency.push(Date.now() - showAt.get(token)); showAt.delete(token); }
+  if (showAt.has(token)) { ackLatency.push(Date.now() - showAt.get(token)); pdbg('画出来了', token, ackLatency[ackLatency.length - 1] + 'ms'); showAt.delete(token); }
 });
 
 // 点托盘/小组件时面板会先因失焦被隐藏，紧接着又收到点击；这种情况当作"关闭"
@@ -243,6 +285,7 @@ function createWindow() {
   win.loadFile(page('index.html'));
   win.webContents.on('did-start-loading', () => { panelReady = false; }); // 重新载入时重置，等页面再次报告就绪
 
+  for (const ev of ['show', 'hide', 'focus', 'blur', 'minimize']) win.on(ev, () => pdbg('窗口事件', ev));
   win.on('blur', () => {
     if (!pinned && !win.webContents.isDevToolsOpened()) {
       win.hide();
@@ -455,12 +498,33 @@ ipcMain.on('widget:drag', (_e, { phase, dx, dy }) => {
     updateSettings({ widgetOffset: Math.round(k * 1000) / 1000 });
   }
 });
-ipcMain.on('widget:click', () => toggleWindow(widget.getBounds()));
-ipcMain.on('widget:add', () => showWindow(widget.getBounds(), true));
+ipcMain.on('widget:click', () => { wlog('点击：开关面板'); toggleWindow(widget.getBounds()); });
+ipcMain.on('widget:add', () => { wlog('点击：新建'); showWindow(widget.getBounds(), true); });
 ipcMain.on('widget:ready', () => { lastLayoutKey = ''; applyWidgetVisibility(); }); // 页面就绪后重发一次布局
 
-// 小组件/菜单上的任务操作都交给面板执行（经验、连击、统计、音效都在面板里）
-ipcMain.on('task:op', (_e, op) => send(win, 'task-op', op));
+// 小组件 / 菜单上的完成、删除、换象限，都是转给主面板的页面去执行的（经验、连击、统计、音效都在那里）。
+// 那个页面卡住或刚好在重载时，转过去的操作就石沉大海：点了没反应，任务栏上的显示也不更新。
+// 所以转发之后 1.5 秒内没看到数据保存，就判定页面没响应：重载页面，等它就绪后把操作再发一次。
+// （完成 / 删除 / 换到同一象限都是幂等的，页面只是慢了一点、两次都生效也不会出错）
+let lastSaveAt = 0;
+ipcMain.on('task:op', (_e, op) => {
+  if (!op || typeof op !== 'object') return;
+  wlog('任务操作', op.op);
+  send(win, 'task-op', op);
+  const t = data && data.tasks.find((x) => x.id === op.id && !x.done);
+  const changes = t && (op.op === 'complete' || op.op === 'delete' || (op.op === 'move' && op.q !== t.q));
+  if (!changes) return;
+  const sentAt = Date.now();
+  setTimeout(() => {
+    if (lastSaveAt >= sentAt) return;
+    dlog(`任务操作 ${op.op} 转给面板后 1.5 秒没有生效，${panelReady ? '重载面板并' : '等面板就绪后'}重试`);
+    if (panelReady) win.webContents.reload();
+    let tries = 0;
+    const timer = setInterval(() => {
+      if (panelReady || ++tries > 40) { clearInterval(timer); if (panelReady) send(win, 'task-op', op); }
+    }, 200);
+  }, 1500);
+});
 
 // 任务右键菜单
 ipcMain.on('menu:showTask', (_e, id) => {
@@ -495,6 +559,7 @@ function menuState() {
   return { settings: settings(), pinned, autoStart: autoStartOn(), counts: openCounts(), today, hotkey: HOTKEY };
 }
 
+let menuIdleTimer = null; // 菜单没拿到焦点时的兜底收起计时
 let menuAt = null;      // 在鼠标位置弹出（右键菜单）
 let menuAnchor = null;  // 贴着某个元素弹出（点任务文字的下拉列表），屏幕 DIP 坐标
 let menuWidth = MENU_W;
@@ -533,6 +598,11 @@ ipcMain.on('menu:ready', (_e, height) => {
   menu.focus();
   menuAt = null;
   menuAnchor = null;
+  // 菜单是从不抢焦点的小组件上点出来的，系统可能拒绝把焦点交给它；而菜单只靠"失焦"自动关闭，没拿到焦点就会一直挂着。
+  // 所以：先重试一次拿焦点，10 秒后仍然没焦点就收起
+  setTimeout(() => { wlog('菜单焦点', menu.isFocused()); if (menu.isVisible() && !menu.isFocused()) menu.focus(); }, 120);
+  clearTimeout(menuIdleTimer);
+  menuIdleTimer = setTimeout(() => { if (menu.isVisible() && !menu.isFocused()) menu.hide(); }, 10000);
 });
 
 // ---------- 任务栏上点任务文字：下拉出同色的全部任务，选一个替换任务栏上显示的 ----------
@@ -542,6 +612,7 @@ let pickCtx = null;
 
 ipcMain.on('widget:pick', (_e, { q, id, shown, anchor }) => {
   if (!data || !menu || ![1, 2, 3, 4].includes(q) || !anchor || !widget || widget.isDestroyed()) return;
+  wlog('点击：下拉', 'Q' + q);
   if (!['x', 'y', 'width', 'height'].every((k) => Number.isFinite(anchor[k]))) return; // 坐标不合法会让 setBounds 抛错
   const wb = widget.getBounds();
   menuAnchor = { x: wb.x + anchor.x, y: wb.y + anchor.y, width: anchor.width, height: anchor.height };
@@ -596,6 +667,7 @@ ipcMain.on('menu:action', (_e, { action, value }) => {
     case 'radius': updateSettings({ radius: value }); break;
     case 'widget': updateSettings({ widget: value }); break;
     case 'widgetExpand': updateSettings({ widgetExpand: value }); break;
+    case 'diagnose': dumpDiagnostics('手动保存', true).then((f) => { if (f) shell.showItemInFolder(f); }); break; // 看到黑屏时点一下，把现场记下来
     case 'pick-select': if (typeof value === 'string') applyPick(value); break;
     case 'pick-reset': if (data) savePins([]); break;
     case 'task-complete': send(win, 'task-op', { op: 'complete', id: value }); break;
@@ -623,6 +695,8 @@ ipcMain.handle('data:save', (e, next) => {
     widgetPins: ((data && data.widgetPins) || []).filter((id) => alive.has(id)),
   };
   saveData();
+  lastSaveAt = Date.now();
+  if (process.env.TM_DEBUG_WIDGET) wlog('数据已保存，待办', data.tasks.filter((t) => !t.done).length);
   broadcast('data-changed', data, e.sender);
   refreshTray();
   return true;
@@ -657,6 +731,19 @@ if (!app.requestSingleInstanceLock()) {
     createWidget();
     createMenu();
     createTray();
+    watchRenderer('主面板', win);
+    watchRenderer('任务栏小组件', widget);
+    watchRenderer('菜单', menu);
+    // GPU 等子进程崩溃会让窗口显示成黑块，至少要留下记录
+    app.on('child-process-gone', (_e, d) => {
+      if (isQuitting || d.reason === 'clean-exit') return; // 正常退出不是异常
+      dlog(`${d.type} 进程退出：${d.reason}（${d.exitCode}）`);
+      dumpDiagnostics(`${d.type} 进程退出：${d.reason}`);
+    });
+    // 睡眠/唤醒、锁屏、显示器变化：显示表面最容易在这些时候出问题，记下时间，出了黑屏好对
+    for (const ev of ['suspend', 'resume', 'lock-screen', 'unlock-screen']) powerMonitor.on(ev, () => dlog(`系统事件：${ev}`));
+    for (const ev of ['display-added', 'display-removed']) screen.on(ev, () => dlog(`显示器变化：${ev}`));
+    screen.on('display-metrics-changed', (_e, _d, changed) => dlog(`显示器变化：${(changed || []).join(',')}`));
     globalShortcut.register(HOTKEY, () => toggleWindow());
 
     // 分辨率、缩放或任务栏位置变化时重新贴边
@@ -674,19 +761,20 @@ if (!app.requestSingleInstanceLock()) {
     // 手动启动时直接弹出面板，开机自启时静默待命
     if (!process.argv.includes('--hidden')) win.once('ready-to-show', () => showWindow());
 
-    if (process.env.TM_SNAPSHOT || process.env.TM_STRESS || process.env.TM_PICKTEST) loadDevTools();
+    if (DEV_ENVS.some((k) => process.env[k])) loadDevTools();
   });
   app.on('before-quit', () => { isQuitting = true; clearTimeout(widgetTimer); clearInterval(raiseTimer); disposeUia(); });
   app.on('will-quit', () => globalShortcut.unregisterAll());
   app.on('window-all-closed', (e) => e.preventDefault());
 }
 
-// 开发测试工具（dev-tools.js，不随安装包发布）：设了 TM_SNAPSHOT / TM_STRESS / TM_PICKTEST 时才加载
+// 开发测试工具（dev-tools.js，不随安装包发布）：设了下面任意一个环境变量时才加载，用法见 README 的"开发测试工具"
+const DEV_ENVS = ['TM_SNAPSHOT', 'TM_STRESS', 'TM_PICKTEST', 'TM_AUTOHIDE', 'TM_RECTS_FILE', 'TM_HANGTEST', 'TM_BLOCKTEST', 'TM_GPUTEST', 'TM_DIAG'];
 function loadDevTools() {
   let dev;
   try {
     dev = require('./dev-tools')({
-      win, widget, menu, tray, showWindow, send, broadcast, menuState, updateSettings, getTaskbar, isFullscreenBusy, uiaActive,
+      win, widget, menu, tray, showWindow, send, broadcast, menuState, updateSettings, getTaskbar, isFullscreenBusy, uiaActive, dumpDiagnostics,
       settings, setPinned, showAt, ackLatency,
       // 这几个会被主程序重新赋值，用 getter 保证读到的永远是最新的
       get data() { return data; },
@@ -699,6 +787,12 @@ function loadDevTools() {
     console.warn('[dev] 开发测试工具不可用:', err.message);
     return;
   }
+  if (process.env.TM_AUTOHIDE) dev.devAutoHide();
+  if (process.env.TM_DIAG) dev.devDiag().catch((err) => { console.log('DIAG 出错', err && err.message); app.quit(); });
+  if (process.env.TM_GPUTEST) dev.devGpuTest(process.env.TM_GPUTEST, process.env.TM_GPUMODE || 'hidden').catch((err) => { console.log('GPUTEST 出错', err && err.message); app.quit(); });
+  if (process.env.TM_BLOCKTEST) dev.devBlockTest(process.env.TM_BLOCKTEST).catch((err) => { console.log('BLOCKTEST 出错', err && err.message); app.quit(); });
+  if (process.env.TM_HANGTEST) dev.devHangTest().catch((err) => { console.log('HANGTEST 出错', err && err.message); app.quit(); });
+  if (process.env.TM_RECTS_FILE) dev.devRects(process.env.TM_RECTS_FILE);
   if (process.env.TM_SNAPSHOT) dev.devSnapshot();
   if (process.env.TM_STRESS) dev.devStress(process.env.TM_STRESS);
   if (process.env.TM_PICKTEST) dev.devPickTest().catch((err) => { console.log('PICKTEST 出错', err && err.message); app.quit(); });

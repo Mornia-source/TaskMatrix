@@ -26,6 +26,7 @@
       "taskbar-layout.js",
       "taskbar-uia.js",
       "win-zorder.js",
+      "diagnose.js",
       "uia-taskbar.ps1",
       "renderer/**/*",
       "package.json"

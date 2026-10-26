@@ -264,5 +264,98 @@ module.exports = (c) => {
     app.quit();
   }
 
-  return { devSnapshot, devStress, devPickTest };
+  // TM_AUTOHIDE=1：面板每次显示 2 秒后自动收起，配合外部脚本用真实鼠标反复点击小组件
+  function devAutoHide() { win.on('show', () => setTimeout(() => { if (win.isVisible()) win.hide(); }, 2000)); }
+
+  // TM_RECTS_FILE=文件：每 0.4 秒把小组件里各可点击元素的屏幕坐标写进文件，供外部脚本用真实鼠标去点
+  function devRects(file) {
+    setInterval(async () => {
+      try {
+        const wb = widget.getBounds();
+        const r = await widget.webContents.executeJavaScript(`(() => {
+          const o = {}; const f = (k, s) => { const e = document.querySelector(s); if (!e || e.hidden || !e.offsetWidth) return; const b = e.getBoundingClientRect(); o[k] = [b.left, b.top, b.width, b.height]; };
+          f('check', '#items .item:not([hidden]) .hit'); f('text', '#items .item:not([hidden]) .t'); f('chip', '.chip:not([hidden])'); f('add', '#add');
+          o.cards = document.querySelectorAll('#items .item:not([hidden])').length; return JSON.stringify(o); })()`);
+        fs.writeFileSync(file, JSON.stringify({ wb, r: JSON.parse(r), at: Date.now() }));
+      } catch { /* 页面正在重载时读不到，下一轮再写 */ }
+    }, 400);
+  }
+
+  // TM_HANGTEST=1：人为把主面板的页面卡死 6 秒，再从任务栏小组件上点 ✓ 完成任务，检查操作能否恢复并最终生效
+  async function devHangTest() {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const js = (w, code) => w.webContents.executeJavaScript(code);
+    const log = (...a) => console.log('HANGTEST', ...a);
+    const open = () => c.data.tasks.filter((t) => !t.done).length;
+    const clickCheck = `(() => { const e = document.querySelector('#items .item .hit'); const o = { bubbles: true, button: 0, pointerId: 1 }; e.dispatchEvent(new PointerEvent('pointerdown', o)); document.querySelector('#bar').dispatchEvent(new PointerEvent('pointerup', o)); })()`;
+    await wait(3500);
+
+    log('0 正常情况：待办', open());
+    let t0 = Date.now(); const n0 = open();
+    await js(widget, clickCheck);
+    while (open() === n0 && Date.now() - t0 < 5000) await wait(30);
+    log('0 正常点 ✓ 生效耗时', Date.now() - t0, 'ms；待办', open());
+
+    log('1 卡死面板页面 6 秒…');
+    js(win, '(() => { const t = Date.now(); while (Date.now() - t < 6000) {} })()').catch(() => {});
+    await wait(400);
+    const n1 = open(); t0 = Date.now();
+    await js(widget, clickCheck);
+    while (open() === n1 && Date.now() - t0 < 20000) await wait(50);
+    log('1 页面卡死时点 ✓：', open() < n1 ? '最终生效' : '没有生效', '，耗时', Date.now() - t0, 'ms；待办', open());
+    await wait(1500);
+
+    log('2 页面恢复后再点一次：');
+    const n2 = open(); t0 = Date.now();
+    await js(widget, clickCheck);
+    while (open() === n2 && Date.now() - t0 < 5000) await wait(30);
+    log('2 生效耗时', Date.now() - t0, 'ms；待办', open());
+    const dl = path.join(app.getPath('userData'), 'debug.log');
+    log('debug.log:', fs.existsSync(dl) ? fs.readFileSync(dl, 'utf8').trim().split('\n').slice(-4).join(' | ') : '(无)');
+    log('done');
+    app.quit();
+  }
+
+  // TM_BLOCKTEST=标记文件：面板刚被显示的同一时刻，把主进程的界面线程堵死 11 秒，用来看窗口会变成什么样（对照用户的黑屏截图）
+  async function devBlockTest(markerFile) {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    await wait(4500);
+    win.hide(); await wait(1200);
+    showWindow(tray.getBounds());
+    fs.writeFileSync(markerFile, JSON.stringify({ panel: win.getBounds(), pid: process.pid, at: Date.now() }));
+    const t = Date.now(); while (Date.now() - t < 11000) { /* 主进程界面线程被占住 */ }
+    console.log('BLOCKTEST 解除');
+    await wait(2500);
+    app.quit();
+  }
+
+  // TM_GPUTEST=标记文件 [TM_GPUMODE=hidden|visible]：把 GPU 进程杀掉（模拟显卡驱动重置 / GPU 崩溃），在 hidden 模式下之后再显示面板，
+  // visible 模式下是面板显示着的时候杀；写出面板坐标给外部脚本截图，看窗口会变成什么样
+  async function devGpuTest(markerFile, mode) {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const killGpu = () => {
+      if (mode.startsWith('renderer')) { const pid = win.webContents.getOSProcessId(); process.kill(pid); return pid; } // 杀掉主面板页面自己的渲染进程
+      const g = app.getAppMetrics().find((m) => m.type === 'GPU'); if (g) process.kill(g.pid); return g && g.pid;
+    };
+    c.setPinned(true); // 测试进程拿不到焦点，别让它因失焦自动收起
+    await wait(4500);
+    let killed;
+    if (mode === 'visible' || mode === 'renderer-visible') { showWindow(tray.getBounds()); await wait(1200); killed = killGpu(); await wait(300); }
+    else { win.hide(); await wait(1000); killed = killGpu(); await wait(900); showWindow(tray.getBounds()); }
+    fs.writeFileSync(markerFile, JSON.stringify({ panel: win.getBounds(), killed, mode, at: Date.now() }));
+    if (process.env.TM_GPUDIAG) { await wait(1500); const f = await c.dumpDiagnostics('测试：' + mode, true); console.log('DIAGFILE', f); }
+    await wait(11000);
+    console.log('GPUTEST 结束；GPU 进程被杀的 pid', killed);
+    app.quit();
+  }
+
+  // TM_DIAG=1：正常状态下保存一份诊断快照并打印出来，检查内容是否完整
+  async function devDiag() {
+    await new Promise((r) => setTimeout(r, 5000));
+    const f = await c.dumpDiagnostics('测试：正常状态', true);
+    console.log('DIAGFILE', f);
+    app.quit();
+  }
+
+  return { devSnapshot, devStress, devPickTest, devAutoHide, devRects, devHangTest, devBlockTest, devGpuTest, devDiag };
 };
