@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-skin="minimal">
 <head>
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
@@ -21,6 +21,8 @@
     <div class="items" id="items"></div>
     <button class="more" id="more" title="还有更多任务，点击打开面板"></button>
     <button class="add" id="add" title="新建任务">＋</button>
+    <!-- 徽标形态：任务栏空白很窄时折叠成一个数字 -->
+    <div class="badge" id="badge"><i></i><b id="badgeN">0</b></div>
     <div class="progress"><div class="pfill" id="pfill"></div></div>
     <canvas id="fx"></canvas>
   </div>

@@ -48,8 +48,25 @@ window.SKINS = {
   hud: { name: '战术 HUD', desc: '切角面板 · 发光描边 · 读数' },
 };
 
+// 极简皮肤的圆角：基准值 radius（0 = 直角）按比例派生出五档，所有窗口共用
+//   rl 大（卡片、象限、弹层） rm 中（统计块、输入栏） rs 小（任务行、按钮） rx 极小  rb 进度条  rp 胶囊/圆形（勾选框、计数）
+window.RADIUS_DEFAULT = 12;
+window.applyRadius = (r) => {
+  const n = Number.isFinite(+r) ? Math.min(20, Math.max(0, +r)) : RADIUS_DEFAULT;
+  const root = document.documentElement.style;
+  const px = (k) => Math.round(n * k * 10) / 10 + 'px';
+  root.setProperty('--r', n + 'px');
+  root.setProperty('--rl', px(1));
+  root.setProperty('--rm', px(0.85));
+  root.setProperty('--rs', px(0.65));
+  root.setProperty('--rx', px(0.45));
+  root.setProperty('--rb', px(0.25));
+  root.setProperty('--rp', px(2));
+};
+
 window.applyLook = (s) => {
   const theme = THEMES[s.theme] || THEMES.steel;
   for (const [k, v] of Object.entries(theme.vars)) document.documentElement.style.setProperty('--' + k, v);
-  document.documentElement.dataset.skin = SKINS[s.skin] ? s.skin : 'industrial';
+  applyRadius(s.radius);
+  document.documentElement.dataset.skin = SKINS[s.skin] ? s.skin : 'minimal';
 };

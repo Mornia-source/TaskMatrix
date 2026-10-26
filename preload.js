@@ -20,6 +20,8 @@ contextBridge.exposeInMainWorld('api', {
   setPinned: (v) => ipcRenderer.send('win:pin', v),
   getPinned: () => ipcRenderer.invoke('win:getPinned'),
   onShown: on('window-shown'),
+  shownAck: (token) => ipcRenderer.send('win:shown-ack', token),
+  panelReady: () => ipcRenderer.send('panel:ready'),
   onPinChanged: on('pin-changed'),
 
   // 任务栏小组件
@@ -27,6 +29,10 @@ contextBridge.exposeInMainWorld('api', {
   widgetClick: () => ipcRenderer.send('widget:click'),
   widgetAdd: () => ipcRenderer.send('widget:add'),
   widgetReady: () => ipcRenderer.send('widget:ready'),
+  widgetInfo: () => ipcRenderer.invoke('widget:info'),
+  widgetPick: (info) => ipcRenderer.send('widget:pick', info),   // 点任务文字：下拉出同色任务
+  onWidgetPicked: on('widget-picked'),
+  onOpenBar: on('open-bar'),
   showTaskMenu: (id) => ipcRenderer.send('menu:showTask', id),
   onWidgetLayout: on('widget-layout'),
 

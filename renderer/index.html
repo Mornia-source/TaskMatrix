@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-skin="minimal">
 <head>
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
@@ -17,7 +17,8 @@
       </div>
       <div class="clock" id="clock">00:00:00</div>
       <div class="win-btns">
-        <button id="btnSkin" title="主题配色与皮肤风格">SKN</button>
+        <button id="btnSkin" title="主题配色、皮肤风格、圆角">SKN</button>
+        <button id="btnBar" title="任务栏小组件设置">BAR</button>
         <button id="btnSound" title="音效开关">SND</button>
         <button id="btnPin" title="钉住窗口（失焦不隐藏）">PIN</button>
         <button id="btnClose" class="close" title="隐藏到托盘 (Esc)">✕</button>
@@ -81,6 +82,7 @@
     </div>
 
     <div class="skin-menu" id="skinMenu"></div>
+    <div class="skin-menu wide" id="barMenu"></div>
   </div>
 
   <canvas id="fx"></canvas>

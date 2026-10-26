@@ -1,55 +1,92 @@
 // 任务栏小组件
-// 紧凑模式：四象限待办数 + 最该做的一条；展开模式：任务卡片直接排在任务栏上，可勾选完成
-// 交互：单击空白开关面板；勾选框完成任务；＋ 新建；右键任务出任务菜单，右键空白出主菜单；紧凑模式可拖动
+// 形态：紧凑 = 有任务的象限计数 + 一条任务；展开 = 任务卡片直接排在任务栏上；徽标 = 一个数字
+// 交互：勾选框完成任务；点任务文字（或象限计数块）下拉出同色的全部任务，选一个替换任务栏上显示的；
+//       ＋ 新建；点空白处开关面板；右键任务出任务菜单，右键空白出主菜单；紧凑形态可拖动
 const $ = (s) => document.querySelector(s);
 let data = null;
 let mode = 'compact';
 const pending = new Set(); // 已点完成、等面板回写数据的任务
+
+// 设置里的轮换参数；rot 是轮换到了第几个
+let cfg = { rotate: false, sec: 8 };
+let rot = 0;
+let rotTimer = null;
+let hovering = false;     // 鼠标停在小组件上时不轮换，免得点的时候内容突然变了
+let pauseUntil = 0;       // 手动选过任务后暂停轮换一阵，让用户看到自己选的
+let lastShown = 0, lastHidden = 0; // 最近一次展开布局里显示 / 放不下的卡片数
+let focusTaskId = null;   // 紧凑形态里正在显示的那条任务
 
 const dayKey = (t = Date.now()) => {
   const d = new Date(t);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-// 按象限优先级排好的待办
-const openTasks = () => {
+// 任务栏显示的顺序：被"钉住"的在最前（用户选过的），其余按象限优先级
+function ordered() {
   const open = ((data && data.tasks) || []).filter((t) => !t.done);
-  return [1, 2, 3, 4].flatMap((q) => open.filter((t) => t.q === q));
-};
-
-function render() {
-  const open = openTasks();
-  for (const chip of document.querySelectorAll('.chip')) {
-    const n = open.filter((t) => t.q === +chip.dataset.q).length;
-    chip.querySelector('b').textContent = n;
-    chip.classList.toggle('empty', n === 0);
-  }
-
-  const next = open[0];
-  $('#focus').className = 'focus' + (next ? ' q' + next.q : ' clear');
-  $('#focusText').textContent = next ? next.text : 'ALL CLEAR';
-
-  const today = (data && data.stats && data.stats.daily[dayKey()]) || 0;
-  const total = today + open.length;
-  $('#pfill').style.setProperty('--p', total ? today / total : 0);
-
-  if (mode === 'expanded') renderItems(open);
+  const pins = (data && data.widgetPins) || [];
+  const pinned = pins.map((id) => open.find((t) => t.id === id)).filter(Boolean);
+  const rest = [1, 2, 3, 4].flatMap((q) => open.filter((t) => t.q === q && !pins.includes(t.id)));
+  return [...pinned, ...rest];
 }
 
-function renderItems(open) {
+// 轮换后的顺序：从第 rot 个开始往后排
+function displayList() {
+  const list = ordered();
+  if (!cfg.rotate || list.length < 2) return list;
+  const k = rot % list.length;
+  return list.slice(k).concat(list.slice(0, k));
+}
+
+function render() {
+  const all = ordered();
+  const list = displayList();
+
+  // 没有任务的象限，对应的颜色块直接不显示
+  let anyChip = false;
+  for (const chip of document.querySelectorAll('.chip')) {
+    const n = all.filter((t) => t.q === +chip.dataset.q).length;
+    chip.querySelector('b').textContent = n;
+    chip.hidden = n === 0;
+    anyChip = anyChip || n > 0;
+  }
+  $('.chips').hidden = !anyChip;
+
+  const next = list[0];
+  focusTaskId = next ? next.id : null;
+  $('#focus').className = 'focus' + (next ? ' q' + next.q : ' clear');
+  $('#focusText').textContent = next ? next.text : 'ALL CLEAR';
+  $('#focus').title = next ? '点击查看同色的全部任务，可替换显示' : '';
+
+  // 徽标：待办总数，颜色取最该做的那条所在象限；悬停提示里写出具体内容
+  const top = all[0];
+  const badge = $('#badge');
+  badge.className = 'badge' + (top ? ' q' + top.q : ' clear');
+  $('#badgeN').textContent = all.length;
+  badge.title = top ? `${all.length} 项待办，最该做：${top.text}` : '任务全部完成';
+
+  const today = (data && data.stats && data.stats.daily[dayKey()]) || 0;
+  const total = today + all.length;
+  $('#pfill').style.setProperty('--p', total ? today / total : 0);
+
+  if (mode === 'expanded') renderItems(list);
+}
+
+function renderItems(list) {
   const box = $('#items');
-  const visible = open.filter((t) => !pending.has(t.id));
+  const visible = list.filter((t) => !pending.has(t.id));
   if (!visible.length) {
     box.innerHTML = '<span class="clear-msg">ALL CLEAR · 今日任务全部完成</span>';
     $('#more').hidden = true;
+    lastShown = lastHidden = 0;
     return;
   }
   box.replaceChildren(...visible.map((t) => {
     const el = document.createElement('div');
     el.className = 'item q' + t.q;
     el.dataset.id = t.id;
-    el.title = t.text;
-    el.innerHTML = '<span class="check" title="完成"></span><span class="t"></span>';
+    el.title = t.text + '\n点击文字：查看同色的全部任务，可替换显示';
+    el.innerHTML = '<span class="hit" title="完成"><span class="check"></span></span><span class="t"></span>';
     el.lastChild.textContent = t.text;
     return el;
   }));
@@ -61,24 +98,66 @@ function fitItems() {
   const box = $('#items');
   const more = $('#more');
   const items = [...box.querySelectorAll('.item')];
-  items.forEach((el) => { el.hidden = false; });
+  items.forEach((el) => { el.hidden = false; el.style.maxWidth = ''; });
   more.hidden = true;
   const overflows = (el) => el.getBoundingClientRect().right > box.getBoundingClientRect().right + 1;
   let hidden = 0;
   for (const el of items) {
-    if (hidden || overflows(el)) { el.hidden = true; hidden++; } // 保持优先级顺序，后面的都收起
+    if (hidden || overflows(el)) { el.hidden = true; hidden++; } // 保持顺序，后面的都收起
   }
-  if (hidden) {
-    more.hidden = false;
+  const done = () => { lastHidden = items.filter((el) => el.hidden).length; lastShown = items.length - lastHidden; };
+  if (!hidden) return done();
+
+  more.hidden = false;
+  more.textContent = '+' + hidden;
+  if (hidden === items.length) {
+    // 连一张完整的卡片都放不下：至少留下第一张，文字截断显示
+    items[0].hidden = false;
+    items[0].style.maxWidth = Math.max(80, box.clientWidth - more.offsetWidth - 6) + 'px';
+    hidden--;
+    more.hidden = hidden === 0;
     more.textContent = '+' + hidden;
-    // +N 按钮本身占了位置，可能还要再藏一个
-    const shown = items.filter((el) => !el.hidden);
-    const last = shown[shown.length - 1];
-    if (last && overflows(last)) {
-      last.hidden = true;
-      more.textContent = '+' + (hidden + 1);
-    }
+    return done();
   }
+  // +N 按钮本身占了位置，可能还要再藏一个
+  const shown = items.filter((el) => !el.hidden);
+  const last = shown[shown.length - 1];
+  if (last && overflows(last)) {
+    last.hidden = true;
+    more.textContent = '+' + (hidden + 1);
+  }
+  done();
+}
+
+// ---------- 自动轮换 ----------
+function flashRotate() {
+  const el = mode === 'expanded' ? $('#items') : $('#focus');
+  el.classList.remove('rot-in');
+  void el.offsetWidth;
+  el.classList.add('rot-in');
+}
+
+function rotateOnce() {
+  if (!cfg.rotate || hovering || Date.now() < pauseUntil) return;
+  const n = ordered().length;
+  if (n < 2) return;
+  if (mode === 'expanded') {
+    if (lastHidden === 0) return; // 卡片全放得下，没必要轮换
+    rot = (rot + Math.max(1, lastShown)) % n; // 整页翻：下一批卡片
+  } else if (mode === 'compact') {
+    rot = (rot + 1) % n;
+  } else {
+    return; // 徽标形态只显示数字
+  }
+  render();
+  flashRotate();
+}
+
+function restartRotation() {
+  clearInterval(rotTimer);
+  rotTimer = null;
+  if (!cfg.rotate) { rot = 0; return; }
+  rotTimer = setInterval(rotateOnce, Math.max(3, cfg.sec) * 1000);
 }
 
 // ---------- 反馈效果 ----------
@@ -129,7 +208,9 @@ function pulse({ q, gain }) {
   bar.classList.remove('flash');
   void bar.offsetWidth;
   bar.classList.add('flash');
-  const r = chip.getBoundingClientRect();
+  // 徽标形态下计数块是隐藏的；刚完成的是该象限最后一条时计数块也隐藏了，这时从整条小组件中间飘出
+  const anchor = mode === 'badge' ? $('#badge') : (chip.hidden || !chip.offsetWidth ? $('#bar') : chip);
+  const r = anchor.getBoundingClientRect();
   popText(r.left + r.width / 2, r.top, '+' + gain, q);
 }
 
@@ -146,9 +227,21 @@ function completeItem(item) {
   setTimeout(() => { if (pending.delete(id)) render(); }, 2000);
 }
 
+// ---------- 点任务文字 / 计数块：下拉出同色的全部任务 ----------
+function openPick(q, id, el) {
+  const r = el.getBoundingClientRect();
+  const shown = mode === 'expanded'
+    ? [...document.querySelectorAll('#items .item:not([hidden])')].map((e) => e.dataset.id)
+    : (mode === 'compact' && focusTaskId ? [focusTaskId] : []);
+  pauseUntil = Date.now() + 30000; // 选的时候别轮换
+  window.api.widgetPick({ q, id, shown, anchor: { x: r.left, y: r.top, width: r.width, height: r.height } });
+}
+
 // ---------- 交互 ----------
 let down = null;
 const bar = $('#bar');
+bar.addEventListener('pointerenter', () => { hovering = true; });
+bar.addEventListener('pointerleave', () => { hovering = false; });
 bar.addEventListener('pointerdown', (e) => {
   if (e.button !== 0) return;
   down = { x: e.screenX, y: e.screenY, dragging: false, target: e.target };
@@ -174,8 +267,15 @@ bar.addEventListener('pointerup', (e) => {
     return;
   }
   const item = target.closest('.item');
-  if (target.closest('.check') && item) completeItem(item);
+  const chip = target.closest('.chip');
+  const focus = target.closest('.focus');
+  const task = (id) => ((data && data.tasks) || []).find((t) => t.id === id);
+
+  if (target.closest('.hit') && item) completeItem(item);
   else if (target.closest('.add')) window.api.widgetAdd();
+  else if (item && target.closest('.t')) { const t = task(item.dataset.id); if (t) openPick(t.q, t.id, item); }
+  else if (focus && !focus.classList.contains('clear') && focusTaskId) { const t = task(focusTaskId); if (t) openPick(t.q, t.id, focus); }
+  else if (chip && !chip.hidden) openPick(+chip.dataset.q, null, chip);
   else window.api.widgetClick();
 });
 bar.addEventListener('contextmenu', (e) => {
@@ -194,12 +294,18 @@ window.api.onWidgetLayout((l) => {
   render();
 });
 
+function applyConfig(s) {
+  applyLook(s);
+  cfg = { rotate: !!s.widgetRotate, sec: Number(s.widgetRotateSec) || 8 };
+  restartRotation();
+}
+
 (async () => {
-  applyLook(await window.api.getSettings());
+  applyConfig(await window.api.getSettings());
   data = await window.api.load();
   render();
   window.api.widgetReady();
-  window.api.onSettingsChanged((s) => { applyLook(s); if (mode === 'expanded') setTimeout(fitItems, 0); });
+  window.api.onSettingsChanged((s) => { applyConfig(s); render(); if (mode === 'expanded') setTimeout(fitItems, 0); });
   window.api.onDataChanged((d) => {
     data = d;
     // 已经确认完成的任务不再算"等待中"
@@ -207,5 +313,7 @@ window.api.onWidgetLayout((l) => {
     render();
   });
   window.api.onTaskCompleted(pulse);
+  // 用户手动选了任务：从头开始显示，并暂停轮换一阵
+  window.api.onWidgetPicked(() => { rot = 0; pauseUntil = Date.now() + 30000; render(); });
   setInterval(render, 60000); // 跨天刷新进度
 })();

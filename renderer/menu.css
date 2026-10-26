@@ -2,6 +2,7 @@
   --bg: #1a1c1f; --bg2: #22252a; --panel: #272a30; --panel2: #2e3239; --line: #3a3f47; --line2: #4a505a;
   --text: #d6dae0; --dim: #7c8591; --accent: #ff8a1f; --hazard: #ff8a1f;
   --q1: #ff4d3d; --q2: #ffb020; --q3: #2ad4ff; --q4: #8c96a0; --glow: 0.55;
+  --r: 12px; --rl: 12px; --rm: 10.2px; --rs: 7.8px; --rx: 5.4px; --rb: 3px; --rp: 24px;
   --mono: "Cascadia Mono", "JetBrains Mono", Consolas, "Microsoft YaHei UI", monospace;
   --sans: "Microsoft YaHei UI", "Segoe UI", sans-serif;
 }
@@ -97,26 +98,26 @@ body.task-mode .main-part { display: none; }
 /* ===== 极简 ===== */
 :root[data-skin="minimal"] .task-head { border-left: none; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
 :root[data-skin="minimal"] .task-part .hazard { display: none; }
-:root[data-skin="minimal"] .mv { border: none; border-radius: 6px; background: color-mix(in srgb, var(--qc) 18%, transparent); }
-:root[data-skin="minimal"] .menu { border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
+:root[data-skin="minimal"] .mv { border: none; border-radius: var(--rs); background: color-mix(in srgb, var(--qc) 18%, transparent); }
+:root[data-skin="minimal"] .menu { border: 1px solid var(--line); border-radius: var(--rl); padding: 4px; }
 :root[data-skin="minimal"] .hazard { display: none; }
 :root[data-skin="minimal"] .brand { font-family: var(--sans); letter-spacing: .5px; font-weight: 600; }
 :root[data-skin="minimal"] .brand em { color: var(--dim); }
 :root[data-skin="minimal"] .led { box-shadow: none; }
 :root[data-skin="minimal"] .counts { font-family: var(--sans); }
-:root[data-skin="minimal"] .counts i { border-radius: 50%; }
+:root[data-skin="minimal"] .counts i { border-radius: var(--rp); }
 :root[data-skin="minimal"] .head { border-bottom: 1px solid var(--line); margin-bottom: 4px; }
-:root[data-skin="minimal"] .item { border-radius: 6px; }
+:root[data-skin="minimal"] .item { border-radius: var(--rs); }
 :root[data-skin="minimal"] .item:hover::before { display: none; }
 :root[data-skin="minimal"] .item kbd { border: none; font-family: var(--sans); }
-:root[data-skin="minimal"] .sw { border: none; border-radius: 7px; height: 14px; background: var(--line2); }
-:root[data-skin="minimal"] .sw::after { border-radius: 50%; width: 10px; height: 10px; top: 2px; left: 2px; background: #fff; }
+:root[data-skin="minimal"] .sw { border: none; border-radius: var(--rp); height: 14px; background: var(--line2); }
+:root[data-skin="minimal"] .sw::after { border-radius: var(--rp); width: 10px; height: 10px; top: 2px; left: 2px; background: #fff; }
 :root[data-skin="minimal"] .toggle.on .sw { background: var(--accent); }
 :root[data-skin="minimal"] .toggle.on .sw::after { left: 14px; background: #fff; box-shadow: none; }
-:root[data-skin="minimal"] .theme { border-radius: 6px; }
-:root[data-skin="minimal"] .theme i { border-radius: 2px; }
-:root[data-skin="minimal"] .skins { border: none; background: var(--bg); border-radius: 6px; padding: 2px; }
-:root[data-skin="minimal"] .skin { border-radius: 4px; }
+:root[data-skin="minimal"] .theme { border-radius: var(--rs); }
+:root[data-skin="minimal"] .theme i { border-radius: var(--rb); }
+:root[data-skin="minimal"] .skins { border: none; background: var(--bg); border-radius: var(--rs); padding: 2px; }
+:root[data-skin="minimal"] .skin { border-radius: var(--rx); }
 :root[data-skin="minimal"] .skin + .skin { border-left: none; }
 
 /* ===== 战术 HUD ===== */
@@ -140,3 +141,34 @@ body.task-mode .main-part { display: none; }
 :root[data-skin="hud"] .skins { border-color: color-mix(in srgb, var(--accent) 40%, transparent); transform: skewX(-12deg); }
 :root[data-skin="hud"] .skin { transform: skewX(12deg); }
 :root[data-skin="hud"] .theme { clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px); }
+
+.group[hidden] { display: none; }
+
+/* ===== 下拉模式：同色任务列表 ===== */
+.pick-part { display: none; }
+body.pick-mode .pick-part { display: block; }
+body.pick-mode .main-part, body.pick-mode .task-part { display: none; }
+
+.pick-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px 7px; border-left: 3px solid var(--qc); }
+.pick-head .tq { font: 700 10px var(--mono); color: var(--qc); letter-spacing: 1px; }
+.pick-reset { font-size: 10px; color: var(--dim); border: 1px solid var(--line2); padding: 1px 6px; }
+.pick-reset:hover { color: var(--accent); border-color: var(--accent); }
+.pick-list { max-height: 320px; overflow-y: auto; padding: 4px 0; }
+.pick-list::-webkit-scrollbar { width: 4px; }
+.pick-list::-webkit-scrollbar-thumb { background: var(--line2); }
+.pick-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 10px; cursor: pointer; border-left: 3px solid transparent; }
+.pick-row:hover { background: var(--panel2); border-left-color: var(--qc); }
+.pick-row.current { background: color-mix(in srgb, var(--qc) 12%, transparent); border-left-color: var(--qc); }
+.pick-row .t { flex: 1; min-width: 0; line-height: 1.4; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pick-row .tags { flex-shrink: 0; font: 9px var(--mono); color: var(--dim); }
+.pick-row.shown .tags, .pick-row.current .tags { color: var(--qc); }
+.pick-row .ck { flex-shrink: 0; width: 22px; height: 22px; font-size: 12px; color: var(--dim); border: 1px solid var(--line2); opacity: 0; }
+.pick-row:hover .ck { opacity: 1; }
+.pick-row .ck:hover { background: var(--qc); border-color: var(--qc); color: var(--bg); }
+
+:root[data-skin="minimal"] .pick-head { border-left: none; border-bottom: 1px solid var(--line); margin-bottom: 2px; }
+:root[data-skin="minimal"] .pick-part .hazard { display: none; }
+:root[data-skin="minimal"] .pick-reset { border: none; border-radius: var(--rx); background: var(--bg); }
+:root[data-skin="minimal"] .pick-row { border-left: none; border-radius: var(--rs); margin: 1px 4px; padding-left: 8px; }
+:root[data-skin="minimal"] .pick-row .ck { border: none; border-radius: var(--rp); background: color-mix(in srgb, var(--qc) 18%, transparent); }
+:root[data-skin="hud"] .pick-row:hover { background: linear-gradient(90deg, color-mix(in srgb, var(--qc) 18%, transparent), transparent); }

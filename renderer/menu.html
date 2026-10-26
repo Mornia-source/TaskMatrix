@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-skin="minimal">
 <head>
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
@@ -8,6 +8,13 @@
 </head>
 <body>
   <div class="menu" id="menu">
+    <!-- 下拉模式：点任务栏上的任务文字或象限计数块，列出同色的全部任务，选一个替换任务栏上显示的 -->
+    <div class="pick-part" id="pickPart">
+      <div class="pick-head"><span class="tq" id="pickQ"></span><button class="pick-reset" id="pickReset" hidden>恢复自动顺序</button></div>
+      <div class="hazard"></div>
+      <div class="pick-list" id="pickList"></div>
+    </div>
+
     <!-- 任务模式：在小组件的任务卡片上右键 -->
     <div class="task-part">
       <div class="task-head" id="taskHead"><span class="tq" id="taskQ"></span><span class="tt" id="taskText"></span></div>
@@ -32,6 +39,7 @@
 
     <button class="item toggle" data-action="widget"><span class="ico">▬</span><span class="label">任务栏小组件</span><span class="sw"></span></button>
     <button class="item toggle sub" data-action="widgetExpand"><span class="ico">↔</span><span class="label">在任务栏显示任务项</span><span class="sw"></span></button>
+    <button class="item sub" data-action="bar-settings"><span class="ico">⚙</span><span class="label">小组件设置…</span></button>
     <button class="item toggle" data-action="pin"><span class="ico">◈</span><span class="label">钉住面板</span><span class="sw"></span></button>
     <button class="item toggle" data-action="sound"><span class="ico">♪</span><span class="label">音效</span><span class="sw"></span></button>
     <button class="item toggle" data-action="autostart"><span class="ico">⏻</span><span class="label">开机自启</span><span class="sw"></span></button>
@@ -39,6 +47,7 @@
 
     <div class="group"><span class="glabel">主题</span><div class="themes" id="themes"></div></div>
     <div class="group"><span class="glabel">皮肤</span><div class="skins" id="skins"></div></div>
+    <div class="group" id="radiusGroup" hidden><span class="glabel">圆角</span><div class="skins radii" id="radii"></div></div>
     <div class="sep"></div>
 
     <button class="item danger" data-action="quit"><span class="ico">✕</span><span class="label">退出</span></button>

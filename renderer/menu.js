@@ -20,9 +20,33 @@ function renderTask() {
   }));
 }
 
+function renderPick() {
+  const p = st.pick;
+  $('#pickPart').className = 'pick-part q' + p.q;
+  $('#pickQ').textContent = `Q${p.q} · ${Q_NAMES[p.q]} · ${p.tasks.length} 项`;
+  $('#pickReset').hidden = !p.hasPins;
+  $('#pickList').replaceChildren(...p.tasks.map((t) => {
+    const row = document.createElement('div');
+    row.className = 'pick-row' + (t.current ? ' current' : '') + (t.shown ? ' shown' : '');
+    row.innerHTML = '<span class="t"></span><span class="tags"></span><button class="ck" title="直接完成">✓</button>';
+    row.querySelector('.t').textContent = t.text; // 注意：这个页面的 $ 只在整个文档里找，行内元素要用 row.querySelector
+    row.title = t.text;
+    const tags = [];
+    if (t.pinned) tags.push('固定');
+    if (t.current) tags.push('当前'); else if (t.shown) tags.push('显示中');
+    row.querySelector('.tags').textContent = tags.join(' · ');
+    row.onclick = () => window.api.menuAction('pick-select', t.id);
+    row.querySelector('.ck').onclick = (e) => { e.stopPropagation(); window.api.menuAction('task-complete', t.id); };
+    return row;
+  }));
+}
+$('#pickReset').onclick = () => window.api.menuAction('pick-reset');
+
 function render() {
   applyLook(st.settings);
+  document.body.classList.toggle('pick-mode', !!st.pick);
   document.body.classList.toggle('task-mode', !!st.task);
+  if (st.pick) return renderPick();
   if (st.task) return renderTask();
   const c = st.counts;
   $('#counts').innerHTML = [1, 2, 3, 4].map((q) => `<span class="q${q}${c[q] ? '' : ' empty'}"><i></i>${c[q]}</span>`).join('')
@@ -40,6 +64,16 @@ function render() {
     b.style.background = t.vars.bg;
     b.innerHTML = [t.vars.q1, t.vars.q2, t.vars.q3, t.vars.accent].map((col) => `<i style="background:${col}"></i>`).join('');
     b.onclick = () => window.api.menuAction('theme', key);
+    return b;
+  }));
+
+  // 圆角预设：只有极简皮肤才有圆角可调（精确数值在面板的 SKN 里用滑块调）
+  $('#radiusGroup').hidden = st.settings.skin !== 'minimal';
+  $('#radii').replaceChildren(...[['直角', 0], ['小', 6], ['默认', 12], ['大', 18]].map(([name, n]) => {
+    const b = document.createElement('button');
+    b.className = 'skin' + (+st.settings.radius === n ? ' current' : '');
+    b.textContent = name;
+    b.onclick = () => window.api.menuAction('radius', n);
     return b;
   }));
 
@@ -76,5 +110,5 @@ window.api.onMenuOpen((state) => {
     window.api.menuReady(m.getBoundingClientRect().height + 8);
   }, 0);
 });
-window.api.onSettingsChanged((s) => { if (st) { st.settings = s; if (!st.task) render(); else applyLook(s); } });
+window.api.onSettingsChanged((s) => { if (st) { st.settings = s; if (!st.task && !st.pick) render(); else applyLook(s); } });
 window.api.onPinChanged((v) => { if (st) { st.pinned = v; render(); } });

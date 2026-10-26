@@ -58,7 +58,12 @@ function applySettings(s) {
   applyLook(s);
   Sound.setEnabled(s.sound);
   $('#btnSound').classList.toggle('on', s.sound);
-  if ($('#skinMenu').classList.contains('open')) renderSkinMenu();
+  // 正在拖滑块时不能重建界面（会打断拖动）；松手后滑块失焦，下一次更新再重绘
+  const dragging = document.activeElement && document.activeElement.type === 'range';
+  if (!dragging) {
+    if ($('#skinMenu').classList.contains('open')) renderSkinMenu();
+    if ($('#barMenu').classList.contains('open')) renderBarMenu();
+  }
 }
 
 function renderSkinMenu() {
@@ -82,6 +87,138 @@ function renderSkinMenu() {
     b.onclick = () => { window.api.setSettings({ skin: key }); Sound.tick(); };
     $('.skin-list', menu).appendChild(b);
   }
+  if (state.settings.skin === 'minimal') menu.appendChild(radiusRow());
+}
+
+// ---------- 圆角（极简皮肤） ----------
+const RADIUS_PRESETS = [['直角', 0], ['小', 6], ['默认', 12], ['大', 18]];
+const radiusLabel = (n) => (+n === 0 ? '直角' : n + 'px');
+
+// 设置变更先在本地立即预览，再合并后统一发给主进程保存
+const pushSettings = (() => {
+  let timer = null, pending = {};
+  return (patch) => {
+    Object.assign(pending, patch);
+    clearTimeout(timer);
+    timer = setTimeout(() => { window.api.setSettings(pending); pending = {}; }, 80);
+  };
+})();
+
+function radiusRow() {
+  const row = document.createElement('div');
+  row.className = 'rad';
+  row.innerHTML = '<div class="title">CORNER // 圆角</div>'
+    + '<div class="rad-row"><input type="range" min="0" max="20" step="1" aria-label="圆角"><b></b></div>'
+    + '<div class="presets"></div>';
+  const range = $('input', row), val = $('b', row);
+  const set = (n) => { range.value = n; val.textContent = radiusLabel(n); applyRadius(n); pushSettings({ radius: +n }); };
+  range.value = state.settings.radius;
+  val.textContent = radiusLabel(state.settings.radius);
+  range.oninput = () => set(range.value);
+  range.onchange = () => range.blur(); // 松手后失焦，让界面按最新设置重绘
+  for (const [name, n] of RADIUS_PRESETS) {
+    const b = document.createElement('button');
+    b.className = 'preset' + (+state.settings.radius === n ? ' current' : '');
+    b.textContent = name;
+    b.onclick = () => { set(n); Sound.tick(); };
+    $('.presets', row).appendChild(b);
+  }
+  return row;
+}
+
+// ---------- 任务栏小组件设置 ----------
+const BAR_SEGS = [
+  ['widgetPlace', '放在哪块空白', [['auto', '自动'], ['left', '靠左'], ['right', '靠右']], '居中的任务栏左右各有一块空白；自动 = 选能放下更完整形态的那块'],
+  ['widgetCollapse', '空间不足时', [['badge', '折叠成徽标'], ['hide', '隐藏']], '空白太窄放不下时的处理'],
+  ['widgetAutoHide', '任务栏自动隐藏时', [['follow', '跟随弹出'], ['hide', '不显示']], '开了"自动隐藏任务栏"：跟随 = 任务栏弹出时才出现'],
+];
+const BAR_SLIDERS = [
+  ['widgetGap', '与图标的间距', 0, 24, 1, (n) => n + 'px'],
+  ['widgetMaxWidth', '最大宽度', 320, 1200, 20, (n) => n + 'px'],
+  ['widgetRotateSec', '轮换间隔', 3, 60, 1, (n) => n + ' 秒'],
+];
+const EDGE_NAMES = { top: '顶部', bottom: '底部', left: '左侧', right: '右侧' };
+const MODE_NAMES = { expanded: '展开任务卡片', compact: '紧凑', badge: '徽标' };
+const SIDE_NAMES = { left: '左', right: '右', mid: '中' };
+let barTimer = null;
+
+function describeBar(i) {
+  if (!i || i.source === 'none') return '没能读到任务栏上的图标位置，小组件使用紧凑形态，可以直接在任务栏上拖动它。';
+  const lines = [`${EDGE_NAMES[i.edge] || ''}任务栏 · ${i.source === 'msaa' ? '经典任务栏' : 'Win11 任务栏'}`];
+  if (i.systemAlign) lines.push(`系统设置：图标${i.systemAlign === 'left' ? '居左' : '居中'}`);
+  lines.push('空白：' + (i.gaps.length ? i.gaps.map((g) => `${SIDE_NAMES[g.side]} ${g.width}px`).join(' / ') : '没有'));
+  lines.push('当前：' + (MODE_NAMES[i.mode] || '已隐藏（任务栏上没有空位）') + (i.side ? `，放在${SIDE_NAMES[i.side]}侧` : ''));
+  if (i.fellBack) lines.push('指定的一侧放不下，已改用另一侧');
+  if (i.autoHide) lines.push(`任务栏自动隐藏中（${i.revealed ? '已弹出' : '已收起'}）`);
+  return lines.join('\n');
+}
+
+async function refreshBarInfo() {
+  const el = $('.bar-info');
+  if (el) el.textContent = describeBar(await window.api.widgetInfo());
+}
+
+function renderBarMenu() {
+  const menu = $('#barMenu');
+  const s = state.settings;
+  menu.innerHTML = '<div class="title">TASKBAR // 任务栏小组件</div>';
+
+  for (const [key, label] of [['widget', '在任务栏显示小组件'], ['widgetExpand', '空间够时显示任务项'], ['widgetRotate', '自动轮换任务显示']]) {
+    const b = document.createElement('button');
+    b.className = 'toggle-row' + (s[key] ? ' on' : '');
+    b.innerHTML = '<span></span><i class="sw"></i>';
+    b.firstChild.textContent = label;
+    b.onclick = () => window.api.setSettings({ [key]: !s[key] });
+    menu.appendChild(b);
+  }
+
+  for (const [key, label, opts, hint] of BAR_SEGS) {
+    const row = document.createElement('div');
+    row.className = 'seg-row';
+    row.innerHTML = '<div class="seg-label"></div><div class="seg"></div>';
+    $('.seg-label', row).textContent = label;
+    row.title = hint;
+    for (const [value, text] of opts) {
+      const b = document.createElement('button');
+      b.className = s[key] === value ? 'current' : '';
+      b.textContent = text;
+      b.onclick = () => window.api.setSettings({ [key]: value });
+      $('.seg', row).appendChild(b);
+    }
+    menu.appendChild(row);
+  }
+
+  for (const [key, label, min, max, step, fmt] of BAR_SLIDERS) {
+    const row = document.createElement('div');
+    row.className = 'slider-row';
+    row.innerHTML = `<span></span><input type="range" min="${min}" max="${max}" step="${step}"><b></b>`;
+    if (key === 'widgetRotateSec') { row.classList.toggle('off', !s.widgetRotate); row.title = '自动轮换开着时才生效；鼠标停在小组件上、或刚手动选过任务时会暂停'; }
+    $('span', row).textContent = label;
+    const range = $('input', row), val = $('b', row);
+    range.value = s[key];
+    val.textContent = fmt(s[key]);
+    range.oninput = () => { val.textContent = fmt(range.value); pushSettings({ [key]: +range.value }); };
+    range.onchange = () => range.blur();
+    menu.appendChild(row);
+  }
+
+  const info = document.createElement('div');
+  info.className = 'bar-info';
+  menu.appendChild(info);
+  refreshBarInfo();
+}
+
+function openBarMenu() {
+  $('#skinMenu').classList.remove('open');
+  renderBarMenu();
+  $('#barMenu').classList.add('open');
+  clearInterval(barTimer);
+  barTimer = setInterval(refreshBarInfo, 1000);
+}
+
+function closeBarMenu() {
+  $('#barMenu').classList.remove('open');
+  clearInterval(barTimer);
 }
 
 // ---------- 渲染 ----------
@@ -90,7 +227,8 @@ function taskEl(task) {
   li.className = 'task';
   li.dataset.id = task.id;
   li.draggable = true;
-  li.innerHTML = '<span class="check" title="完成"></span><span class="text"></span><button class="del" title="删除">✕</button>';
+  // .hit 是比方框大得多的点击热区（整条左侧高度），.check 只负责画方框
+  li.innerHTML = '<span class="hit" title="完成"><span class="check"></span></span><span class="text"></span><button class="del" title="删除">✕</button>';
   $('.text', li).textContent = task.text;
   return li;
 }
@@ -335,8 +473,9 @@ function tickClock() {
 }
 
 function closeOverlays() {
-  const open = $('#skinMenu.open') || $('#drawer.open');
+  const open = $('#skinMenu.open') || $('#barMenu.open') || $('#drawer.open');
   $('#skinMenu').classList.remove('open');
+  closeBarMenu();
   $('#drawer').classList.remove('open');
   return !!open;
 }
@@ -373,7 +512,7 @@ async function init() {
   $('#matrix').addEventListener('click', (e) => {
     const li = e.target.closest('.task');
     if (!li) return;
-    if (e.target.closest('.check')) completeTask(li);
+    if (e.target.closest('.hit')) completeTask(li);
     else if (e.target.closest('.del')) deleteTask(li);
   });
   $('#matrix').addEventListener('dblclick', (e) => {
@@ -400,9 +539,16 @@ async function init() {
 
   $('#btnSkin').onclick = (e) => {
     e.stopPropagation();
+    closeBarMenu();
     renderSkinMenu();
     $('#skinMenu').classList.toggle('open');
   };
+  $('#btnBar').onclick = (e) => {
+    e.stopPropagation();
+    if ($('#barMenu').classList.contains('open')) closeBarMenu();
+    else openBarMenu();
+  };
+  window.api.onOpenBar(openBarMenu); // 托盘菜单里的"小组件设置…"
   $('#btnDone').onclick = () => $('#drawer').classList.toggle('open');
   $('#btnCloseDrawer').onclick = () => $('#drawer').classList.remove('open');
   $('#btnClearDone').onclick = () => {
@@ -414,6 +560,7 @@ async function init() {
   };
   document.addEventListener('click', (e) => {
     if (!e.target.closest('#skinMenu')) $('#skinMenu').classList.remove('open');
+    if (!e.target.closest('#barMenu')) closeBarMenu();
   });
 
   document.addEventListener('keydown', (e) => {
@@ -429,17 +576,25 @@ async function init() {
   $('#app').addEventListener('animationend', (e) => {
     if (e.animationName === 'slide-in') e.currentTarget.classList.remove('from-top', 'from-bottom', 'from-left', 'from-right');
   });
-  window.api.onShown(({ edge, focusInput }) => {
+  let slideTimer = null;
+  window.api.onShown(({ edge, focusInput, token }) => {
     renderStatus(); // 跨天后刷新统计
     // 从任务栏所在的那一边滑出
     const app = $('#app');
-    app.classList.remove('from-top', 'from-bottom', 'from-left', 'from-right');
+    const slideClasses = ['from-top', 'from-bottom', 'from-left', 'from-right'];
+    app.classList.remove(...slideClasses);
     void app.offsetWidth;
     app.classList.add('from-' + (edge || 'bottom'));
+    // 不依赖 animationend：动画被卡住时也保证清掉动画类
+    clearTimeout(slideTimer);
+    slideTimer = setTimeout(() => app.classList.remove(...slideClasses), 450);
+    // 下一帧回报"画出来了"；主进程超时没收到就判定为黑块，会强制重绘或重载页面
+    requestAnimationFrame(() => window.api.shownAck(token));
     if (focusInput) input.select();
     input.focus();
   });
   input.focus();
+  window.api.panelReady(); // 监听都注册好了，主进程这时才开始监测"面板有没有画出来"
 }
 
 init();

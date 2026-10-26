@@ -7,6 +7,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
+    "test": "node --test test/taskbar-layout.test.js",
     "icon": "node build/make-icon.js",
     "dist": "electron-builder --win"
   },
@@ -22,10 +23,15 @@
       "preload.js",
       "taskbar.js",
       "taskbar-space.js",
+      "taskbar-layout.js",
+      "taskbar-uia.js",
+      "win-zorder.js",
+      "uia-taskbar.ps1",
       "renderer/**/*",
       "package.json"
     ],
     "asarUnpack": [
+      "uia-taskbar.ps1",
       "node_modules/koffi/**",
       "node_modules/@koromix/**"
     ],

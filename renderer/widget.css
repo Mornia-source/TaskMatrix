@@ -2,6 +2,7 @@
   --bg: #1a1c1f; --bg2: #22252a; --panel: #272a30; --line: #3a3f47; --line2: #4a505a;
   --text: #d6dae0; --dim: #7c8591; --accent: #ff8a1f;
   --q1: #ff4d3d; --q2: #ffb020; --q3: #2ad4ff; --q4: #8c96a0; --glow: 0.55;
+  --r: 12px; --rl: 12px; --rm: 10.2px; --rs: 7.8px; --rx: 5.4px; --rb: 3px; --rp: 24px;
   --mono: "Cascadia Mono", "JetBrains Mono", Consolas, "Microsoft YaHei UI", monospace;
   --sans: "Microsoft YaHei UI", "Segoe UI", sans-serif;
 }
@@ -85,11 +86,11 @@ body.mode-expanded .chip i { font-size: 6px; }
 body.mode-expanded .chip b { font-size: 11px; }
 
 .items {
-  flex: 1; min-width: 0; height: 28px; align-items: center; gap: 4px; overflow: hidden;
+  flex: 1; min-width: 0; height: 32px; align-items: center; gap: 4px; overflow: hidden;
   padding-left: 6px; border-left: 1px solid var(--line2);
 }
 .item {
-  flex: 0 0 auto; min-width: 60px; max-width: 220px; height: 26px;
+  flex: 0 0 auto; min-width: 60px; max-width: 220px; height: 30px; overflow: hidden;
   display: flex; align-items: center; gap: 6px; padding: 0 8px 0 6px;
   background: color-mix(in srgb, var(--qc) 10%, var(--bg2));
   border: 1px solid color-mix(in srgb, var(--qc) 35%, var(--line));
@@ -98,11 +99,18 @@ body.mode-expanded .chip b { font-size: 11px; }
 }
 .item[hidden] { display: none; }
 .item:hover { background: color-mix(in srgb, var(--qc) 22%, var(--bg2)); }
+/* 点击热区：整张卡片左侧 28px 宽、满高，抵消卡片左内边距 */
+.item .hit {
+  flex-shrink: 0; align-self: stretch; width: 28px; margin: 0 -2px 0 -6px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: background .12s;
+}
+.item .hit:hover { background: color-mix(in srgb, var(--qc) 22%, transparent); }
 .item .check {
   flex-shrink: 0; width: 12px; height: 12px; position: relative;
-  border: 1.5px solid var(--qc); cursor: pointer;
+  border: 1.5px solid var(--qc);
 }
-.item .check:hover { background: color-mix(in srgb, var(--qc) 40%, transparent); }
+.item .hit:hover .check { background: color-mix(in srgb, var(--qc) 40%, transparent); }
 .item .check::after {
   content: ""; position: absolute; left: 2.5px; top: -0.5px; width: 3.5px; height: 7px;
   border: solid var(--bg); border-width: 0 2px 2px 0; transform: rotate(45deg) scale(0); transition: transform .15s;
@@ -144,27 +152,27 @@ body.vertical .pfill { width: 100%; height: calc(var(--p, 0) * 100%); }
 
 /* ===== 极简：半透明圆角胶囊，像系统自带的一样 ===== */
 :root[data-skin="minimal"] .bar {
-  border: none; border-radius: 8px; padding: 0 10px;
+  border: none; border-radius: var(--rm); padding: 0 10px;
   background: color-mix(in srgb, var(--panel) 75%, transparent);
 }
 :root[data-skin="minimal"] .bar:hover { background: var(--panel); }
 :root[data-skin="minimal"] .bar::before { display: none; }
 :root[data-skin="minimal"] .led { display: none; }
-:root[data-skin="minimal"] .chip { flex-direction: row; gap: 3px; border: none; border-radius: 6px; min-width: 0; height: 22px; padding: 0 6px; }
-:root[data-skin="minimal"] .chip i { width: 6px; height: 6px; border-radius: 50%; background: var(--qc); font-size: 0; }
+:root[data-skin="minimal"] .chip { flex-direction: row; gap: 3px; border: none; border-radius: var(--rs); min-width: 0; height: 22px; padding: 0 6px; }
+:root[data-skin="minimal"] .chip i { width: 6px; height: 6px; border-radius: var(--rp); background: var(--qc); font-size: 0; }
 :root[data-skin="minimal"] .chip b { font-family: var(--sans); font-weight: 600; font-size: 12px; }
 :root[data-skin="minimal"] .focus { border-left: none; padding-left: 4px; }
 :root[data-skin="minimal"] .focus.clear .ft { font-family: var(--sans); letter-spacing: 0; }
-:root[data-skin="minimal"] .progress { left: 10px; right: 10px; bottom: 3px; border-radius: 1px; }
-:root[data-skin="minimal"] .pfill { box-shadow: none; border-radius: 1px; }
+:root[data-skin="minimal"] .progress { left: 10px; right: 10px; bottom: 3px; border-radius: var(--rb); }
+:root[data-skin="minimal"] .pfill { box-shadow: none; border-radius: var(--rb); }
 :root[data-skin="minimal"] body.vertical .chip { flex-direction: column; height: auto; padding: 4px 0; }
 :root[data-skin="minimal"] .items { border-left: none; }
-:root[data-skin="minimal"] .item { border: none; border-radius: 13px; padding-left: 8px; background: color-mix(in srgb, var(--qc) 16%, transparent); }
-:root[data-skin="minimal"] .item .check { border-radius: 50%; }
+:root[data-skin="minimal"] .item { border: none; border-radius: var(--rp); padding-left: 8px; background: color-mix(in srgb, var(--qc) 16%, transparent); }
+:root[data-skin="minimal"] .item .check { border-radius: var(--rp); }
 :root[data-skin="minimal"] .item .check::after { left: 2.5px; top: 0; width: 3px; height: 6px; }
 :root[data-skin="minimal"] .item .t::after { height: 1.5px; box-shadow: none; }
 :root[data-skin="minimal"] .clear-msg { font-family: var(--sans); letter-spacing: 0; font-weight: 600; }
-:root[data-skin="minimal"] .more, :root[data-skin="minimal"] .add { border: none; border-radius: 13px; background: color-mix(in srgb, var(--panel) 80%, transparent); }
+:root[data-skin="minimal"] .more, :root[data-skin="minimal"] .add { border: none; border-radius: var(--rp); background: color-mix(in srgb, var(--panel) 80%, transparent); }
 
 /* ===== 战术 HUD：切角 + 发光描边 ===== */
 :root[data-skin="hud"] .bar {
@@ -193,3 +201,29 @@ body.vertical .pfill { width: 100%; height: calc(var(--p, 0) * 100%); }
 :root[data-skin="hud"] .item.completing .check::after { transform: scale(1); }
 :root[data-skin="hud"] .item .t { font-family: var(--mono); font-size: 11px; }
 :root[data-skin="hud"] .add, :root[data-skin="hud"] .more { clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px); }
+
+/* ===== 徽标形态：空白很窄时折叠成一个数字（可在设置里改成直接隐藏） ===== */
+.badge { display: none; flex: 1; align-items: center; justify-content: center; gap: 6px; min-width: 0; font-family: var(--mono); }
+.badge i { width: 8px; height: 8px; flex-shrink: 0; background: var(--qc, var(--accent)); box-shadow: 0 0 6px var(--qc, var(--accent)); }
+.badge b { font-size: 15px; line-height: 1; font-variant-numeric: tabular-nums; }
+.badge.clear i { background: var(--accent); }
+body.mode-badge .badge { display: flex; }
+body.mode-badge .chips, body.mode-badge .focus, body.mode-badge .items, body.mode-badge .more,
+body.mode-badge .add, body.mode-badge .led { display: none; }
+body.mode-badge .bar { padding: 0 6px 0 8px; }
+:root[data-skin="minimal"] .badge { font-family: var(--sans); }
+:root[data-skin="minimal"] .badge i { border-radius: var(--rp); box-shadow: none; }
+:root[data-skin="minimal"] .badge b { font-weight: 600; }
+:root[data-skin="hud"] .badge i { transform: rotate(45deg) scale(.85); }
+
+/* ===== 没有任务的象限：整个颜色块不显示 ===== */
+[hidden] { display: none !important; }
+
+/* ===== 点任务文字 / 计数块可以下拉同色任务 ===== */
+.chip, .item .t, .focus:not(.clear) .ft { cursor: pointer; }
+.item .t:hover, .focus:not(.clear) .ft:hover { text-decoration: underline dotted; text-underline-offset: 3px; }
+.chip:hover { filter: brightness(1.25); }
+
+/* ===== 自动轮换：内容换了的时候淡入一下 ===== */
+.rot-in { animation: rot-in .35s ease-out; }
+@keyframes rot-in { from { opacity: 0; transform: translateY(5px); } }
