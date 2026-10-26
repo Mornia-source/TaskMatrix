@@ -226,6 +226,11 @@ function showWindow(anchor = null, focusInput = false) {
   if (!win) return;
   positionWindow(anchor);
   win.show();
+  // 程序被以"隐藏 / 最小化"的方式启动时（比如启动脚本里 Run 的第二个参数是 0），Windows 会把进程里第一次 ShowWindow 改成隐藏 / 最小化：
+  // 面板其实没显示出来，屏幕上还会留下一块 #202020 的灰色残影（有圆角和阴影，但没有窗口，截图工具也认不到）。
+  // 第一次被吞掉之后，再显示一次就正常了
+  if (win.isMinimized()) win.restore();
+  if (!win.isVisible()) { dlog('面板第一次显示被系统吞掉（启动方式是隐藏 / 最小化），重新显示'); win.show(); }
   win.focus();
   win.webContents.invalidate(); // 显示时强制重绘一帧
   const token = ++showSeq;
@@ -427,6 +432,7 @@ function applyWidgetVisibility() {
     if (!widget.isVisible()) {
       wlog('显示');
       widget.showInactive();
+      if (!widget.isVisible()) widget.showInactive(); // 同上：第一次显示可能被启动方式吞掉
       widget.setAlwaysOnTop(true, 'screen-saver'); // 只在显示时设置一次；之后由 Z 序检测负责，不再每次轮询都重设
     }
     return;
@@ -595,6 +601,7 @@ ipcMain.on('menu:ready', (_e, height) => {
   y = Math.min(Math.max(y, wa.y + 4), wa.y + wa.height - h - 4);
   menu.setBounds({ x: Math.round(x), y: Math.round(y), width: W, height: h });
   menu.show();
+  if (!menu.isVisible()) menu.show(); // 同上：开机自启（不弹面板）时，菜单可能是进程里第一个被显示的窗口
   menu.focus();
   menuAt = null;
   menuAnchor = null;
